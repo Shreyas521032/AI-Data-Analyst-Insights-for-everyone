@@ -420,7 +420,7 @@ def agent_generate_report(df, eda_insights, ai_analysis, charts, agent):
     </head>
     <body>
         <div class="header">
-            <h1>🤖 AI Agent Analysis Report</h1>
+            <h1>⚙️ AI Agent Analysis Report</h1>
             <p>Autonomous Data Analysis Results</p>
         </div>
         
@@ -511,7 +511,7 @@ def agent_generate_report(df, eda_insights, ai_analysis, charts, agent):
     return report_html
 
 # Main App
-st.markdown('<h1 class="main-header">🤖 AI Data Analysis Agent</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header">⚙️ AI Data Analysis Agent</h1>', unsafe_allow_html=True)
 st.markdown("### Autonomous Data Analysis Pipeline with AI Intelligence")
 
 # Sidebar
@@ -520,14 +520,14 @@ with st.sidebar:
     api_key = st.text_input("Gemini API Key", type="password", help="Enter your Google Gemini API key")
     
     st.markdown("---")
-    st.header("🤖 Agent Status")
+    st.header("⚙️ Agent Status")
     
     agent_phases = {
         'idle': '⏸️ Idle',
         'data_cleaning': '🧹 Cleaning Data',
         'exploratory_analysis': '📈 Exploring Data',
         'goal_setting': '🎯 Setting Objective',
-        'ai_powered_analysis': '🤖 AI Analysis',
+        'ai_powered_analysis': '⚙️ AI Analysis',
         'intelligent_visualization': '📊 Creating Visualizations',
         'report_generation': '📄 Generating Report'
     }
@@ -580,7 +580,7 @@ with st.sidebar:
         st.rerun()
 
 # Main content
-tab1, tab2, tab3, tab4 = st.tabs(["📤 Data Ingestion", "🤖 AI Analysis", "📊 Results & Insights", "🔄 Agent Workflow"])
+tab1, tab2, tab3, tab4 = st.tabs(["📤 Data Ingestion", "⚙️ AI Analysis", "📊 Results & Insights", "🔄 Agent Workflow"])
 
 with tab1:
     st.header("Phase 1: Data Ingestion & Preprocessing")
@@ -669,7 +669,7 @@ with tab2:
                     try:
                         ai_model = initialize_ai_model(api_key)
                         
-                        with st.spinner("🤖 AI Agent analyzing your dataset..."):
+                        with st.spinner("⚙️ AI Agent analyzing your dataset..."):
                             analysis = agent_ai_analysis(
                                 ai_model,
                                 st.session_state.agent.cleaned_data,
