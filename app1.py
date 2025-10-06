@@ -533,7 +533,7 @@ with st.sidebar:
     }
     
     for stage_key, stage_name in stages.items():
-        if st.session_state.stage == stage_key:
+        if st.session_state.agent.update_phase == stage_key:
             st.markdown(f"**✅ {stage_name}** (Current)")
         else:
             st.markdown(f"⏳ {stage_name}")
