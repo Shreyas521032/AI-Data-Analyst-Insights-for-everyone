@@ -847,7 +847,7 @@ with tab4:
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #666; padding: 2rem;">
-    <p>Made with ❤️ by Shreyas Kasture</p>
+    <p>Made with &#10084; by Shreyas Kasture</p>
     <p>Autonomous AI Agent for Intelligent Data Analysis</p>
     <p style="font-size: 0.9em; margin-top: 1rem;">
         <strong>Agent Version:</strong> 1.0 | 
