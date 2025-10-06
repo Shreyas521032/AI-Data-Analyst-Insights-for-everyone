@@ -555,20 +555,6 @@ with st.sidebar:
         st.info("📤 Upload a dataset to see statistics")
     
     st.markdown("---")
-    
-    # Agent Memory Log
-    st.header("🔍 Agent Activity Log")
-    if st.session_state.agent.agent_memory:
-        with st.expander("View Recent Actions", expanded=False):
-            for action in st.session_state.agent.agent_memory[-10:]:  # Show last 10 actions
-                st.text(f"• {action}")
-    else:
-        st.info("No actions logged yet")
-    
-    # Reset button
-    if st.button("🔄 Reset Agent", help="Clear all data and restart"):
-        st.session_state.agent.reset_agent()
-        st.rerun()
 
 # Main content
 tab1, tab2, tab3, tab4 = st.tabs(["📤 Data Ingestion", "⚙️ AI Analysis", "📊 Results & Insights", "🔄 Agent Workflow"])
