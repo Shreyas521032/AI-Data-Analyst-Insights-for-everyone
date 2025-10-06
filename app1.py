@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from anthropic import Anthropic
+import google.generativeai as genai
 import json
 import io
 
@@ -79,9 +79,10 @@ if 'chat_history' not in st.session_state:
 if 'stage' not in st.session_state:
     st.session_state.stage = 'upload'
 
-def initialize_claude(api_key):
-    """Initialize Claude AI client"""
-    return Anthropic(api_key=api_key)
+def initialize_gemini(api_key):
+    """Initialize Gemini AI client"""
+    genai.configure(api_key=api_key)
+    return genai.GenerativeModel('gemini-1.5-pro')
 
 def clean_and_validate_data(df):
     """Data cleaning and preprocessing"""
@@ -159,10 +160,10 @@ def generate_visualizations(df):
     
     return figs
 
-def analyze_with_claude(client, df, eda_results, user_goal):
-    """Use Claude to analyze data and provide insights"""
+def analyze_with_gemini(model, df, eda_results, user_goal):
+    """Use Gemini to analyze data and provide insights"""
     
-    # Prepare data summary for Claude
+    # Prepare data summary for Gemini
     data_summary = f"""
     Dataset Shape: {eda_results['shape']}
     Columns: {', '.join(eda_results['columns'])}
@@ -195,14 +196,8 @@ Please provide:
 Format your response in clear sections."""
 
     try:
-        message = client.messages.create(
-            model="claude-sonnet-4-5-20250929",
-            max_tokens=2000,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
-        return message.content[0].text
+        response = model.generate_content(prompt)
+        return response.text
     except Exception as e:
         return f"Error analyzing data: {str(e)}"
 
@@ -234,12 +229,12 @@ def create_custom_visualization(df, viz_type, x_col, y_col=None, color_col=None)
 
 # Main App
 st.markdown('<h1 class="main-header">🤖 AI Data Analysis Agent</h1>', unsafe_allow_html=True)
-st.markdown("### Automated Data Analysis Pipeline with Claude AI")
+st.markdown("### Automated Data Analysis Pipeline with Gemini AI")
 
 # Sidebar
 with st.sidebar:
     st.header("⚙️ Configuration")
-    api_key = st.text_input("Claude API Key", type="password", help="Enter your Anthropic API key")
+    api_key = st.text_input("Gemini API Key", type="password", help="Enter your Google Gemini API key")
     
     st.markdown("---")
     st.header("📊 Pipeline Status")
@@ -334,7 +329,7 @@ with tab2:
     
     if st.session_state.processed_data is not None:
         if not api_key:
-            st.warning("⚠️ Please enter your Claude API key in the sidebar to continue.")
+            st.warning("⚠️ Please enter your Gemini API key in the sidebar to continue.")
         else:
             st.session_state.stage = 'goal'
             
@@ -353,11 +348,11 @@ with tab2:
                     st.session_state.stage = 'analysis'
                     
                     try:
-                        client = initialize_claude(api_key)
+                        model = initialize_gemini(api_key)
                         
                         with st.spinner("🤖 AI Agent is analyzing your data..."):
-                            analysis = analyze_with_claude(
-                                client,
+                            analysis = analyze_with_gemini(
+                                model,
                                 st.session_state.processed_data,
                                 st.session_state.analysis_results['eda'],
                                 user_goal
@@ -465,7 +460,7 @@ with tab3:
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #666; padding: 2rem;">
-    <p>🤖 Powered by Claude AI | Built with Streamlit</p>
+    <p>🤖 Powered by Gemini AI | Built with Streamlit</p>
     <p>Your AI-powered data analysis assistant</p>
 </div>
 """, unsafe_allow_html=True)
