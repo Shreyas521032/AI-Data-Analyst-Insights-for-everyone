@@ -780,18 +780,11 @@ with tab4:
     """)
     
     # Configuration for flow diagram URL
-    st.subheader("⚙️ Flow Diagram Configuration")
+    st.subheader("⚙️ Flow Diagram")
+
+    DEFAULT_FLOW_URL = "https://github.com/Shreyas521032/AI-Data-Analyst-Insights-for-everyone/blob/main/flow/AI%20AGENT.png"
     
-    flow_url = st.text_input(
-        "GitHub Repository Flow Diagram URL",
-        value=st.session_state.agent.flow_diagram_url,
-        placeholder="https://raw.githubusercontent.com/username/repo/main/flow_diagram.png",
-        help="Enter the raw URL of your flow diagram image from GitHub"
-    )
-    
-    if st.button("Update Flow Diagram URL"):
-        st.session_state.agent.flow_diagram_url = flow_url
-        st.success("✅ Flow diagram URL updated!")
+    st.markdown(f"**Source:** `{DEFAULT_FLOW_URL}`")
     
     st.markdown("---")
     
