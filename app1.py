@@ -807,8 +807,6 @@ with tab4:
             st.success("✅ Flow diagram loaded")
         except Exception:
             # Log full details on the server and show a friendly message to the user
-            logging.exception("Failed to open/display the flow diagram image")
-            st.error("❌ Could not display the flow diagram image. The file may be corrupted or an unsupported format.")
             st.info("💡 Ensure the URL points to a raw PNG/JPG file in the GitHub repository.")
     else:
         st.error("❌ Failed to load flow diagram from repository.")
