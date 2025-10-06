@@ -505,6 +505,7 @@ def agent_generate_report(df, eda_insights, ai_analysis, charts, agent):
         </div>
     </body>
     </html> 
+    """
     
     agent.log_action("Generated comprehensive analysis report")
     return report_html
