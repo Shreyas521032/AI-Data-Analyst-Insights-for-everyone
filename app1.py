@@ -464,7 +464,7 @@ def agent_generate_report(df, eda_insights, ai_analysis, charts, agent):
             continue
             """
     
-    report_html += f"""
+    report_html += """
         </div>
         
         <div class="section">
