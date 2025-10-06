@@ -540,19 +540,24 @@ with st.sidebar:
     
     with status_container:
         for phase_key, phase_name in agent_phases.items():
+            # Skip idle phase in display
+            if phase_key == 'idle':
+                continue
+                
             # Check if this phase is completed
             phase_completed = False
-            if current_phase != 'idle' and phase_key != 'idle':
+            if current_phase != 'idle':
                 try:
                     current_idx = phase_order.index(current_phase)
                     phase_idx = phase_order.index(phase_key)
+                    # A phase is completed only if current phase index is greater
                     phase_completed = phase_idx < current_idx
                 except (ValueError, IndexError):
                     pass
             
             # Display status based on state
             if current_phase == phase_key:
-                st.markdown(f"**✅ {phase_name}** 🔴 *(Active)*")
+                st.markdown(f"**{phase_name}** 🔴 *(Active)*")
             elif phase_completed:
                 st.markdown(f"✅ {phase_name}")
             else:
