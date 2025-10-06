@@ -82,7 +82,12 @@ if 'stage' not in st.session_state:
 def initialize_gemini(api_key):
     """Initialize Gemini AI client"""
     genai.configure(api_key=api_key)
-    return genai.GenerativeModel('gemini-1.5-pro')
+    try:
+        # Use Gemini 1.0 Flash (free tier model)
+        return genai.GenerativeModel('gemini-1.5-flash')
+    except:
+        # Fall back to Gemini 1.0 (free tier model)
+        return genai.GenerativeModel('gemini-1.0-pro')
 
 def clean_and_validate_data(df):
     """Data cleaning and preprocessing"""
