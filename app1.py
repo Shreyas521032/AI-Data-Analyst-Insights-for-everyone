@@ -530,11 +530,9 @@ with st.sidebar:
     
     if st.session_state.agent.cleaned_data is not None:
         df_to_display = st.session_state.agent.cleaned_data
-        status_msg = "✅ Showing Stats for **Cleaned Data**"
     elif st.session_state.agent.raw_data is not None:
         # If raw data exists but cleaning hasn't set cleaned_data yet
         df_to_display = st.session_state.agent.raw_data
-        status_msg = "⚠️ Showing Stats for **Raw Data** (Cleaning in progress or pending)"
     
     if df_to_display is not None:
         df = df_to_display
