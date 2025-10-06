@@ -5,3 +5,6 @@ anthropic
 numpy
 scikit-learn
 google-generativeai
+plotly-express
+requests
+Pillow
