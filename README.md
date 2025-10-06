@@ -1,7 +1,5 @@
 # AI Data Analyst — Insights for Everyone
 
-> Streamlit AI Agent that ingests a CSV, performs cleaning & EDA, runs AI-assisted analysis & visualization, and produces downloadable reports — with a one-click “Run Full Analysis” mode.
-
 This repository contains a production-ready, extensible Streamlit application that implements an autonomous **AI Data Analysis Agent**. It takes user CSVs through a full pipeline (ingest → clean → EDA → user goal → AI analysis → visualizations → report), and includes safety/UX features such as silent visualization error handling, optional Gemini/OpenAI summarization, and a configurable workflow diagram.
 
 ---
@@ -76,7 +74,7 @@ scikit-learn
 requests
 Pillow
 google-generativeai    # Gemini integration
-anthropic               # optional (if using Anthropic models instead)
+anthropic               # optional 
 ```
 
 Install everything with:
@@ -118,31 +116,6 @@ pip install -r requirements.txt
 
 ---
 
-## Configuration & common options
-
-* **Gemini / Generative AI**
-
-  * Provide your `Gemini` (Google Generative AI) API key in the sidebar. The app initializes `google-generativeai` if a key is present and will call the model to generate analysis summaries and visualization recommendations.
-  * If you prefer another provider, the app includes hooks (and optional `anthropic`) to plug in different LLM clients.
-
-* **Flow diagram**
-
-  * The Agent Workflow diagram (Tab: "Agent Workflow") loads an image from a `DEFAULT_FLOW_URL` defined in the code. Use a raw GitHub content URL (raw.githubusercontent.com) or any public image URL.
-
-* **Upload size limit**
-
-  * The sample app checks file size (commonly set to 30–50 MB). Change the limit constant in the app as needed.
-
-* **Silent visualization errors**
-
-  * The app wraps Plotly creation in a safe plotting helper. Toggle the behavior in code (silent vs friendly warnings). All exceptions are logged server-side.
-
-* **Non-ASCII / emoji issues**
-
-  * If you encounter `SyntaxError: invalid character` for emojis (e.g., ❤️), either remove the emoji from the source, replace it with an HTML entity (e.g. `&#10084;`), or save the file as UTF-8. The safest default is to avoid literal emojis in `.py` files.
-
----
-
 ## App layout & tabs
 
 * **📤 Data Ingestion** — Upload CSV, preprocessing, quick EDA and previews.
@@ -173,16 +146,6 @@ pip install -r requirements.txt
 
 ---
 
-## Extending the app
-
-* Add model training (classification/regression) with cross-validation and hyperparameter tuning (scikit-learn, XGBoost).
-* Add time-series forecasting (Prophet, pmdarima, or deep learning).
-* Generate PDF reports (weasyprint, reportlab, or headless Chromium).
-* Add authentication & cloud deployment: Streamlit Cloud, Heroku, or containerized deployment on AWS/GCP/Azure.
-* Add a task queue or worker for heavy analyses (Celery/RQ) to avoid blocking Streamlit's single-threaded server.
-
----
-
 ## Contributing
 
 Contributions are welcome!
@@ -206,11 +169,3 @@ This repository is provided under the **MIT License**. Add a `LICENSE` file with
 
 Made with ❤️ by **Shreyas Kasture**
 Repository: [https://github.com/Shreyas521032/AI-Data-Analyst-Insights-for-everyone](https://github.com/Shreyas521032/AI-Data-Analyst-Insights-for-everyone)
-
-If you'd like, I can also:
-
-* Add badges (CI, license, python version)
-* Create `LICENSE`, `CONTRIBUTING.md`, and `CODE_OF_CONDUCT.md`
-* Create a `requirements.txt` file and PR-ready patches
-
-Which one should I add next?
