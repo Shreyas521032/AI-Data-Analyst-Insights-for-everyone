@@ -741,7 +741,7 @@ with tab4:
     if flow_image is not None:
         try:
             image = Image.open(flow_image)
-            st.image(image, caption="Project Flow Diagram", use_container_width=True)
+            st.image(image, caption="Project Flow", use_container_width=True)
         except Exception as e:
             st.error(f"Error loading image: {str(e)}")
     else:
