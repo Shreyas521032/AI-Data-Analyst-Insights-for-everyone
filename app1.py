@@ -522,7 +522,7 @@ with st.sidebar:
     st.markdown("---")
     st.header("⚙️ Agent Status")
     
-    agent_phases = {
+    stages = {
         'idle': '⏸️ Idle',
         'data_cleaning': '🧹 Cleaning Data',
         'exploratory_analysis': '📈 Exploring Data',
