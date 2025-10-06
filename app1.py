@@ -459,12 +459,12 @@ def agent_generate_report(df, eda_insights, ai_analysis, charts, agent):
                 <img src="data:image/png;base64,{img_base64}" alt="{viz_data['title']}">
                 {f'<div class="insight"><strong>Insight:</strong> {viz_data["insight"]}</div>' if viz_data.get('insight') else ''}
             </div>
-            
+            """
         except Exception as e:
             continue
-            """
+        
     
-    report_html += """
+    report_html += f"""
         </div>
         
         <div class="section">
