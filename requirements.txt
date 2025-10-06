@@ -4,3 +4,4 @@ plotly
 anthropic
 numpy
 scikit-learn
+google-generativeai
