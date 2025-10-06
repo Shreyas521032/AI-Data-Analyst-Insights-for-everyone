@@ -794,7 +794,6 @@ with tab4:
             resp.raise_for_status()
             return resp.content
         except Exception as e:
-            logging.exception("Failed to fetch flow diagram image")
             return None
 
     # Load & display the flow image
