@@ -782,9 +782,7 @@ with tab4:
     # Configuration for flow diagram URL
     st.subheader("⚙️ Flow Diagram")
 
-    DEFAULT_FLOW_URL = "https://github.com/Shreyas521032/AI-Data-Analyst-Insights-for-everyone/blob/main/flow/AI%20AGENT.png"
-    
-    st.markdown(f"**Source:** `{DEFAULT_FLOW_URL}`")
+    DEFAULT_FLOW_URL = "https://raw.githubusercontent.com/Shreyas521032/AI-Data-Analyst-Insights-for-everyone/main/flow/AI%20AGENT.png"
     
     st.markdown("---")
 
