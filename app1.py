@@ -847,10 +847,5 @@ st.markdown("""
 <div style="text-align: center; color: #666; padding: 2rem;">
     <p>Made with ❤️ by Shreyas Kasture</p>
     <p>Autonomous AI Agent for Intelligent Data Analysis</p>
-    <p style="font-size: 0.9em; margin-top: 1rem;">
-        <strong>Agent Version:</strong> 1.0 | 
-        <strong>Model:</strong> Gemini 2.5 Flash | 
-        <strong>Framework:</strong> Streamlit + Plotly
-    </p>
 </div>
 """, unsafe_allow_html=True)
