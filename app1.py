@@ -840,9 +840,6 @@ with tab4:
             """)
         
     st.markdown("---")
-   
-    phases_df = pd.DataFrame(phases_data)
-    st.dataframe(phases_df, use_container_width=True, hide_index=True)
 
 # Footer
 st.markdown("---")
