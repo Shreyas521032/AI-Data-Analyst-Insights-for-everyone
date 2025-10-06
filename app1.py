@@ -787,138 +787,41 @@ with tab4:
     st.markdown(f"**Source:** `{DEFAULT_FLOW_URL}`")
     
     st.markdown("---")
-    
-    # Display flow diagram from repository
-    if flow_url:
+
+    def fetch_image_bytes(url: str, timeout: int = 10):
         try:
-            st.subheader("📊 Agent Workflow Architecture")
-            
-            # Fetch and display image from URL
-            response = requests.get(flow_url, timeout=10)
-            if response.status_code == 200:
-                image = Image.open(io.BytesIO(response.content))
-                st.image(image, caption="AI Agent Workflow Architecture", use_container_width=True)
-                st.success("✅ Flow diagram loaded from repository")
-            else:
-                st.error(f"❌ Failed to load image. Status code: {response.status_code}")
-                st.info("💡 Make sure the URL points to a raw image file (PNG, JPG, JPEG)")
-        except requests.exceptions.RequestException as e:
-            st.error(f"❌ Error loading image: {str(e)}")
-            st.info("💡 Verify the URL is correct and accessible")
+            resp = requests.get(url, timeout=timeout)
+            resp.raise_for_status()
+            return resp.content
         except Exception as e:
-            st.error(f"❌ Error displaying image: {str(e)}")
+            logging.exception("Failed to fetch flow diagram image")
+            return None
+
+    # Load & display the flow image
+    image_bytes = fetch_image_bytes(DEFAULT_FLOW_URL)
+    if image_bytes:
+        try:
+            # Open via PIL to ensure format correctness
+            img = Image.open(io.BytesIO(image_bytes))
+            # Display full width in the Streamlit page container
+            st.image(img, caption="AI Agent Workflow Architecture", use_container_width=True)
+            st.success("✅ Flow diagram loaded")
+        except Exception:
+            # Log full details on the server and show a friendly message to the user
+            logging.exception("Failed to open/display the flow diagram image")
+            st.error("❌ Could not display the flow diagram image. The file may be corrupted or an unsupported format.")
+            st.info("💡 Ensure the URL points to a raw PNG/JPG file in the GitHub repository.")
     else:
-        # Display default workflow description
-        st.subheader("📋 Default Agent Workflow")
-        st.markdown("""
-        ### Autonomous AI Agent Pipeline
+        st.error("❌ Failed to load flow diagram from repository.")
+        st.info("💡 Check the DEFAULT_FLOW_URL value in the code and ensure it points to the raw file (e.g., raw.githubusercontent.com/...)")
+
+    st.markdown("---")
+
+    st.subheader("🏗️ Agent Architecture Components")
         
-        ```
-        ┌─────────────────────────────────────────────────────────┐
-        │           AI DATA ANALYSIS AGENT WORKFLOW               │
-        └─────────────────────────────────────────────────────────┘
+    col1, col2 = st.columns(2)
         
-        🔷 PHASE 1: DATA INGESTION
-           ├── Accept CSV dataset input
-           ├── Validate file size & format
-           ├── Store in agent.raw_data
-           └── Log action: "Dataset ingested"
-           
-        🔷 PHASE 2: DATA PREPROCESSING
-           ├── Agent scans for missing values
-           ├── Detect & remove duplicates
-           ├── Standardize feature names
-           ├── Apply cleaning algorithms
-           ├── Store in agent.cleaned_data
-           └── Log action: "Data cleaning complete"
-           
-        🔷 PHASE 3: EXPLORATORY ANALYSIS
-           ├── Calculate statistical summaries
-           ├── Analyze feature distributions
-           ├── Identify data types & patterns
-           ├── Store in agent.eda_insights
-           └── Log action: "EDA completed"
-           
-        🔷 PHASE 4: INITIAL VISUALIZATION
-           ├── Generate correlation heatmaps
-           ├── Create distribution plots
-           ├── Build frequency charts
-           ├── Store initial charts
-           └── Log action: "Initial viz generated"
-           
-        🔷 PHASE 5: OBJECTIVE DEFINITION
-           ├── Receive user analysis goal
-           ├── Parse objective requirements
-           ├── Update agent.current_phase
-           └── Log action: "Objective defined"
-           
-        🔷 PHASE 6: AI-POWERED ANALYSIS
-           ├── Initialize Gemini AI model
-           ├── Prepare data context summary
-           ├── Execute AI analysis pipeline
-           ├── Extract key insights & patterns
-           ├── Generate recommendations
-           ├── Store in agent.ai_analysis
-           └── Log action: "AI analysis complete"
-           
-        🔷 PHASE 7: INTELLIGENT VISUALIZATION
-           ├── Parse AI recommendations (JSON)
-           ├── Validate chart specifications
-           ├── Generate custom visualizations
-           ├── Attach insights to each chart
-           ├── Store in agent.generated_charts
-           └── Log action: "Intelligent viz created"
-           
-        🔷 PHASE 8: REPORT GENERATION
-           ├── Compile all analysis results
-           ├── Convert charts to base64
-           ├── Build HTML report structure
-           ├── Embed visualizations & insights
-           ├── Generate downloadable formats
-           └── Log action: "Report generated"
-           
-        🔷 PHASE 9: RESULT DELIVERY
-           ├── Display interactive results
-           ├── Provide export options (CSV, MD, HTML)
-           ├── Enable custom visualization builder
-           └── Log action: "Results delivered"
-        
-        ┌─────────────────────────────────────────────────────────┐
-        │                  AGENT MEMORY SYSTEM                    │
-        ├─────────────────────────────────────────────────────────┤
-        │  • agent.raw_data           → Original dataset          │
-        │  • agent.cleaned_data       → Preprocessed data         │
-        │  • agent.eda_insights       → Statistical analysis      │
-        │  • agent.ai_analysis        → AI discoveries            │
-        │  • agent.generated_charts   → Visualization library     │
-        │  • agent.agent_memory       → Action history log        │
-        │  • agent.current_phase      → Active workflow phase     │
-        └─────────────────────────────────────────────────────────┘
-        
-        ┌─────────────────────────────────────────────────────────┐
-        │                  KEY AGENT CAPABILITIES                 │
-        ├─────────────────────────────────────────────────────────┤
-        │  ✓ Autonomous data quality assessment                   │
-        │  ✓ Intelligent missing value handling                   │
-        │  ✓ Self-directed exploratory analysis                   │
-        │  ✓ AI-powered pattern recognition                       │
-        │  ✓ Context-aware visualization generation               │
-        │  ✓ Actionable insight extraction                        │
-        │  ✓ Comprehensive report automation                      │
-        │  ✓ Multi-format export capabilities                     │
-        └─────────────────────────────────────────────────────────┘
-        ```
-        """)
-        
-        st.info("💡 **Tip:** Configure the GitHub repository URL above to display your custom workflow diagram!")
-        
-        # Agent Architecture Diagram
-        st.markdown("---")
-        st.subheader("🏗️ Agent Architecture Components")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
+    with col1:
             st.markdown("""
             #### 🧠 Core Agent Components
             - **Data Manager**: Handles ingestion & storage
@@ -929,7 +832,7 @@ with tab4:
             - **Report Builder**: Multi-format output generator
             """)
         
-        with col2:
+    with col2:
             st.markdown("""
             #### 💾 Agent State Management
             - **raw_data**: Original dataset buffer
@@ -941,12 +844,12 @@ with tab4:
             - **current_phase**: Workflow state tracker
             """)
         
-        st.markdown("---")
+    st.markdown("---")
         
         # Workflow Phases Table
-        st.subheader("📊 Workflow Phases Overview")
-        
-        phases_data = {
+    st.subheader("📊 Workflow Phases Overview")
+       
+    phases_data = {
             'Phase': ['1', '2', '3', '4', '5', '6', '7', '8', '9'],
             'Name': [
                 'Data Ingestion',
@@ -983,8 +886,8 @@ with tab4:
             ]
         }
         
-        phases_df = pd.DataFrame(phases_data)
-        st.dataframe(phases_df, use_container_width=True, hide_index=True)
+    phases_df = pd.DataFrame(phases_data)
+    st.dataframe(phases_df, use_container_width=True, hide_index=True)
 
 # Footer
 st.markdown("---")
