@@ -533,30 +533,30 @@ with st.sidebar:
     }
     
     current_phase = st.session_state.agent.current_phase
+    phase_order = list(agent_phases.keys())
+    
+    # Create a container for dynamic status updates
     status_container = st.container()
     
     with status_container:
-        for phase_key, (emoji, phase_name) in agent_phases.items():
+        for phase_key, phase_name in agent_phases.items():
+            # Check if this phase is completed
+            phase_completed = False
+            if current_phase != 'idle' and phase_key != 'idle':
+                try:
+                    current_idx = phase_order.index(current_phase)
+                    phase_idx = phase_order.index(phase_key)
+                    phase_completed = phase_idx < current_idx
+                except (ValueError, IndexError):
+                    pass
+            
+            # Display status based on state
             if current_phase == phase_key:
-                st.markdown(f"**✅ {emoji} {phase_name}** 🔴 *Active*")
-            elif phase_key in ['idle']:
-                st.markdown(f"{emoji} {phase_name}")
+                st.markdown(f"**✅ {phase_name}** 🔴 *(Active)*")
+            elif phase_completed:
+                st.markdown(f"✅ {phase_name}")
             else:
-                # Check if this phase has been completed
-                phase_completed = False
-                phase_order = list(agent_phases.keys())
-                if current_phase != 'idle':
-                    try:
-                        current_idx = phase_order.index(current_phase)
-                        phase_idx = phase_order.index(phase_key)
-                        phase_completed = phase_idx < current_idx
-                    except ValueError:
-                        pass
-                
-                if phase_completed:
-                    st.markdown(f"✅ {emoji} {phase_name}")
-                else:
-                    st.markdown(f"⏳ {emoji} {phase_name}")
+                st.markdown(f"⏳ {phase_name}")
     
     st.markdown("---")
     st.header("📝 Agent Memory")
@@ -573,6 +573,7 @@ with st.sidebar:
     else:
         st.info("No actions recorded yet")
     
+    # Add reset button
     st.markdown("---")
     if st.button("🔄 Reset Agent", type="secondary"):
         st.session_state.agent.reset_agent()
