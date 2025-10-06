@@ -532,60 +532,11 @@ with st.sidebar:
         'report_generation': '📄 Generating Report'
     }
     
-    current_phase = st.session_state.agent.current_phase
-    phase_order = list(agent_phases.keys())
-    
-    # Create a container for dynamic status updates
-    status_container = st.container()
-    
-    with status_container:
-        for phase_key, phase_name in agent_phases.items():
-            # Skip idle phase in display
-            if phase_key == 'idle':
-                continue
-            
-            # Determine phase status
-            if current_phase == 'idle':
-                # If agent is idle, all phases are pending
-                st.markdown(f"⏳ {phase_name}")
-            elif current_phase == phase_key:
-                # This is the current active phase
-                st.markdown(f"**{phase_name}** 🔴 *(Active)*")
-            else:
-                # Check if this phase was completed
-                try:
-                    current_idx = phase_order.index(current_phase)
-                    phase_idx = phase_order.index(phase_key)
-                    
-                    if phase_idx < current_idx:
-                        # Phase is completed
-                        st.markdown(f"✅ {phase_name}")
-                    else:
-                        # Phase is pending
-                        st.markdown(f"⏳ {phase_name}")
-                except (ValueError, IndexError):
-                    st.markdown(f"⏳ {phase_name}")
-    
-    st.markdown("---")
-    st.header("📝 Agent Memory")
-    if st.session_state.agent.agent_memory:
-        memory_expander = st.expander("View Agent Actions", expanded=False)
-        with memory_expander:
-            # Show last 15 actions in reverse chronological order
-            recent_actions = st.session_state.agent.agent_memory[-15:]
-            for i, action in enumerate(reversed(recent_actions)):
-                st.caption(f"{len(recent_actions) - i}. {action}")
-            
-            if len(st.session_state.agent.agent_memory) > 15:
-                st.caption(f"... and {len(st.session_state.agent.agent_memory) - 15} more actions")
-    else:
-        st.info("No actions recorded yet")
-    
-    # Add reset button
-    st.markdown("---")
-    if st.button("🔄 Reset Agent", type="secondary"):
-        st.session_state.agent.reset_agent()
-        st.rerun()
+    for stage_key, stage_name in stages.items():
+        if st.session_state.stage == stage_key:
+            st.markdown(f"**✅ {stage_name}** (Current)")
+        else:
+            st.markdown(f"⏳ {stage_name}")
 
 # Main content
 tab1, tab2, tab3, tab4 = st.tabs(["📤 Data Ingestion", "⚙️ AI Analysis", "📊 Results & Insights", "🔄 Agent Workflow"])
