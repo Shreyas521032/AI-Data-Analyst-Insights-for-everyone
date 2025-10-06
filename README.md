@@ -169,3 +169,6 @@ This repository is provided under the **MIT License**. Add a `LICENSE` file with
 
 Made with ❤️ by **Shreyas Kasture**
 Repository: [https://github.com/Shreyas521032/AI-Data-Analyst-Insights-for-everyone](https://github.com/Shreyas521032/AI-Data-Analyst-Insights-for-everyone)
+
+---
+
