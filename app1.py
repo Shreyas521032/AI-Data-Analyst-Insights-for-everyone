@@ -509,6 +509,8 @@ def agent_generate_report(df, eda_insights, ai_analysis, charts, agent):
     
     agent.log_action("Generated comprehensive analysis report")
     return report_html
+if 'agent' not in st.session_state:
+    st.session_state.agent = DataAnalysisAgent()
 
 # Main App
 st.markdown('<h1 class="main-header">⚙️ AI Data Analysis Agent</h1>', unsafe_allow_html=True)
@@ -517,13 +519,26 @@ st.markdown("### Autonomous Data Analysis Pipeline with AI Intelligence")
 # Sidebar
 with st.sidebar:
     st.header("⚙️ Agent Configuration")
-    api_key = st.text_input("Gemini API Key", type="password", help="Enter your Google Gemini API key")
+    api_key = st.text_input("Gemini API Key", type="password", help="Enter your Google Gemini API key") # API key is always visible
     
     st.markdown("---")
     st.header("📊 Dataset Quick Stats")
     
+    # --- MODIFIED LOGIC START ---
+    df_to_display = None
+    status_msg = ""
+    
     if st.session_state.agent.cleaned_data is not None:
-        df = st.session_state.agent.cleaned_data
+        df_to_display = st.session_state.agent.cleaned_data
+        status_msg = "✅ Showing Stats for **Cleaned Data**"
+    elif st.session_state.agent.raw_data is not None:
+        # If raw data exists but cleaning hasn't set cleaned_data yet
+        df_to_display = st.session_state.agent.raw_data
+        status_msg = "⚠️ Showing Stats for **Raw Data** (Cleaning in progress or pending)"
+    
+    if df_to_display is not None:
+        df = df_to_display
+        st.markdown(f'<div class="status-box status-info">{status_msg}</div>', unsafe_allow_html=True)
         
         # Display key metrics
         st.metric("Total Records", f"{df.shape[0]:,}")
@@ -536,10 +551,10 @@ with st.sidebar:
         st.metric("Numeric Features", numeric_count)
         st.metric("Categorical Features", categorical_count)
         
-        # Missing values indicator
+        # Missing values indicator (uses the current df)
         missing_total = df.isnull().sum().sum()
         if missing_total > 0:
-            st.warning(f"⚠️ {missing_total} missing values detected")
+            st.warning(f"⚠️ {missing_total:,} missing values detected")
         else:
             st.success("✅ No missing values")
         
@@ -555,7 +570,6 @@ with st.sidebar:
         st.info("📤 Upload a dataset to see statistics")
     
     st.markdown("---")
-
 # Main content
 tab1, tab2, tab3, tab4 = st.tabs(["📤 Data Ingestion", "⚙️ AI Analysis", "📊 Results & Insights", "🔄 Agent Workflow"])
 
