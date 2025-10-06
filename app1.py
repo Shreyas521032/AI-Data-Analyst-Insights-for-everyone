@@ -802,7 +802,6 @@ with tab4:
             img = Image.open(io.BytesIO(image_bytes))
             # Display full width in the Streamlit page container
             st.image(img, caption="AI Agent Workflow Architecture", use_container_width=True)
-            st.success("✅ Flow diagram loaded")
         except Exception:
             # Log full details on the server and show a friendly message to the user
             st.info("💡 Ensure the URL points to a raw PNG/JPG file in the GitHub repository.")
