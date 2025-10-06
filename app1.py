@@ -520,23 +520,55 @@ with st.sidebar:
     api_key = st.text_input("Gemini API Key", type="password", help="Enter your Google Gemini API key")
     
     st.markdown("---")
-    st.header("⚙️ Agent Status")
+    st.header("📊 Dataset Quick Stats")
     
-    stages = {
-        'idle': '⏸️ Idle',
-        'data_cleaning': '🧹 Cleaning Data',
-        'exploratory_analysis': '📈 Exploring Data',
-        'goal_setting': '🎯 Setting Objective',
-        'ai_powered_analysis': '⚙️ AI Analysis',
-        'intelligent_visualization': '📊 Creating Visualizations',
-        'report_generation': '📄 Generating Report'
-    }
-    
-    for stage_key, stage_name in stages.items():
-        if st.session_state.agent.update_phase == stage_key:
-            st.markdown(f"**✅ {stage_name}** (Current)")
+    if st.session_state.agent.cleaned_data is not None:
+        df = st.session_state.agent.cleaned_data
+        
+        # Display key metrics
+        st.metric("Total Records", f"{df.shape[0]:,}")
+        st.metric("Total Features", df.shape[1])
+        
+        # Numeric vs Categorical breakdown
+        numeric_count = len(df.select_dtypes(include=['float64', 'int64']).columns)
+        categorical_count = len(df.select_dtypes(include=['object']).columns)
+        
+        st.metric("Numeric Features", numeric_count)
+        st.metric("Categorical Features", categorical_count)
+        
+        # Missing values indicator
+        missing_total = df.isnull().sum().sum()
+        if missing_total > 0:
+            st.warning(f"⚠️ {missing_total} missing values detected")
         else:
-            st.markdown(f"⏳ {stage_name}")
+            st.success("✅ No missing values")
+        
+        # Memory usage
+        memory_mb = df.memory_usage(deep=True).sum() / (1024 * 1024)
+        st.info(f"💾 Memory: {memory_mb:.2f} MB")
+        
+        # Show feature list in expander
+        with st.expander("📋 View All Features"):
+            for col in df.columns:
+                st.text(f"• {col} ({df[col].dtype})")
+    else:
+        st.info("📤 Upload a dataset to see statistics")
+    
+    st.markdown("---")
+    
+    # Agent Memory Log
+    st.header("🔍 Agent Activity Log")
+    if st.session_state.agent.agent_memory:
+        with st.expander("View Recent Actions", expanded=False):
+            for action in st.session_state.agent.agent_memory[-10:]:  # Show last 10 actions
+                st.text(f"• {action}")
+    else:
+        st.info("No actions logged yet")
+    
+    # Reset button
+    if st.button("🔄 Reset Agent", help="Clear all data and restart"):
+        st.session_state.agent.reset_agent()
+        st.rerun()
 
 # Main content
 tab1, tab2, tab3, tab4 = st.tabs(["📤 Data Ingestion", "⚙️ AI Analysis", "📊 Results & Insights", "🔄 Agent Workflow"])
