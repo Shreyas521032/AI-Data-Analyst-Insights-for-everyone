@@ -543,25 +543,28 @@ with st.sidebar:
             # Skip idle phase in display
             if phase_key == 'idle':
                 continue
-                
-            # Check if this phase is completed
-            phase_completed = False
-            if current_phase != 'idle':
+            
+            # Determine phase status
+            if current_phase == 'idle':
+                # If agent is idle, all phases are pending
+                st.markdown(f"⏳ {phase_name}")
+            elif current_phase == phase_key:
+                # This is the current active phase
+                st.markdown(f"**{phase_name}** 🔴 *(Active)*")
+            else:
+                # Check if this phase was completed
                 try:
                     current_idx = phase_order.index(current_phase)
                     phase_idx = phase_order.index(phase_key)
-                    # A phase is completed only if current phase index is greater
-                    phase_completed = phase_idx < current_idx
+                    
+                    if phase_idx < current_idx:
+                        # Phase is completed
+                        st.markdown(f"✅ {phase_name}")
+                    else:
+                        # Phase is pending
+                        st.markdown(f"⏳ {phase_name}")
                 except (ValueError, IndexError):
-                    pass
-            
-            # Display status based on state
-            if current_phase == phase_key:
-                st.markdown(f"**{phase_name}** 🔴 *(Active)*")
-            elif phase_completed:
-                st.markdown(f"✅ {phase_name}")
-            else:
-                st.markdown(f"⏳ {phase_name}")
+                    st.markdown(f"⏳ {phase_name}")
     
     st.markdown("---")
     st.header("📝 Agent Memory")
