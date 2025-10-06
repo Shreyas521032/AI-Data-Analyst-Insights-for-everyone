@@ -7,6 +7,7 @@ import json
 import io
 import base64
 from PIL import Image
+import requests
 
 # Page configuration
 st.set_page_config(
@@ -71,39 +72,60 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize session state
-if 'processed_data' not in st.session_state:
-    st.session_state.processed_data = None
-if 'analysis_results' not in st.session_state:
-    st.session_state.analysis_results = {}
-if 'chat_history' not in st.session_state:
-    st.session_state.chat_history = []
-if 'stage' not in st.session_state:
-    st.session_state.stage = 'upload'
-if 'generated_visualizations' not in st.session_state:
-    st.session_state.generated_visualizations = []
+# AI Agent State Management
+class DataAnalysisAgent:
+    def __init__(self):
+        self.raw_data = None
+        self.cleaned_data = None
+        self.eda_insights = {}
+        self.ai_analysis = None
+        self.generated_charts = []
+        self.agent_memory = []
+        self.current_phase = 'idle'
+        self.flow_diagram_url = ""  # Add your GitHub raw image URL here
+        
+    def reset_agent(self):
+        """Reset agent to initial state"""
+        self.__init__()
+    
+    def update_phase(self, phase):
+        """Update current processing phase"""
+        self.current_phase = phase
+        self.agent_memory.append(f"Phase: {phase}")
+    
+    def log_action(self, action):
+        """Log agent actions"""
+        self.agent_memory.append(action)
 
-def initialize_gemini(api_key):
-    """Initialize Gemini AI client"""
+# Initialize AI Agent in session state
+if 'agent' not in st.session_state:
+    st.session_state.agent = DataAnalysisAgent()
+
+def initialize_ai_model(api_key):
+    """Initialize Gemini AI model for the agent"""
     genai.configure(api_key=api_key)
     return genai.GenerativeModel('gemini-2.5-flash')
 
-def clean_and_validate_data(df):
-    """Data cleaning and preprocessing"""
+def agent_clean_data(df, agent):
+    """Agent performs data cleaning operations"""
+    agent.update_phase('data_cleaning')
     issues = []
     
     # Check for missing values
     missing = df.isnull().sum()
     if missing.any():
-        issues.append(f"Missing values found: {missing[missing > 0].to_dict()}")
+        issues.append(f"Missing values detected: {missing[missing > 0].to_dict()}")
+        agent.log_action(f"Handled {missing.sum()} missing values")
     
     # Check for duplicates
     duplicates = df.duplicated().sum()
     if duplicates > 0:
-        issues.append(f"Found {duplicates} duplicate rows")
+        issues.append(f"Detected {duplicates} duplicate rows")
+        agent.log_action(f"Removed {duplicates} duplicate entries")
     
     # Clean column names
     df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
+    agent.log_action("Standardized column names")
     
     # Handle missing values
     for col in df.columns:
@@ -115,11 +137,14 @@ def clean_and_validate_data(df):
     # Remove duplicates
     df = df.drop_duplicates()
     
+    agent.cleaned_data = df
     return df, issues
 
-def perform_eda(df):
-    """Perform exploratory data analysis"""
-    eda_results = {
+def agent_perform_eda(df, agent):
+    """Agent performs exploratory data analysis"""
+    agent.update_phase('exploratory_analysis')
+    
+    insights = {
         'shape': df.shape,
         'columns': df.columns.tolist(),
         'dtypes': df.dtypes.to_dict(),
@@ -127,11 +152,16 @@ def perform_eda(df):
         'missing_values': df.isnull().sum().to_dict(),
         'unique_counts': {col: df[col].nunique() for col in df.columns}
     }
-    return eda_results
+    
+    agent.eda_insights = insights
+    agent.log_action(f"Analyzed {insights['shape'][1]} features across {insights['shape'][0]} samples")
+    
+    return insights
 
-def generate_visualizations(df):
-    """Generate initial visualizations"""
-    figs = []
+def agent_generate_initial_viz(df, agent):
+    """Agent generates initial visualizations"""
+    agent.update_phase('initial_visualization')
+    charts = []
     
     # Numeric columns analysis
     numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
@@ -144,13 +174,15 @@ def generate_visualizations(df):
                            labels=dict(color="Correlation"),
                            color_continuous_scale="RdBu",
                            aspect="auto")
-            figs.append(("Correlation Heatmap", fig))
+            charts.append(("Correlation Heatmap", fig))
+            agent.log_action("Generated correlation analysis")
         
         # Distribution plots for first few numeric columns
         for col in numeric_cols[:3]:
             fig = px.histogram(df, x=col, title=f"Distribution of {col}",
                              marginal="box")
-            figs.append((f"Distribution: {col}", fig))
+            charts.append((f"Distribution: {col}", fig))
+            agent.log_action(f"Created distribution chart for {col}")
     
     # Categorical columns analysis
     categorical_cols = df.select_dtypes(include=['object']).columns
@@ -160,95 +192,103 @@ def generate_visualizations(df):
             fig = px.bar(x=value_counts.index, y=value_counts.values,
                         title=f"Count of {col}",
                         labels={'x': col, 'y': 'Count'})
-            figs.append((f"Count: {col}", fig))
+            charts.append((f"Count: {col}", fig))
+            agent.log_action(f"Created frequency chart for {col}")
     
-    return figs
+    return charts
 
-def analyze_with_gemini(model, df, eda_results, user_goal):
-    """Use Gemini to analyze data and provide insights with visualization recommendations"""
+def agent_ai_analysis(model, df, eda_insights, user_objective, agent):
+    """Agent performs AI-powered deep analysis"""
+    agent.update_phase('ai_powered_analysis')
     
-    # Prepare data summary for Gemini
-    data_summary = f"""
-    Dataset Shape: {eda_results['shape']}
-    Columns: {', '.join(eda_results['columns'])}
+    # Prepare data summary for AI
+    data_context = f"""
+    Dataset Shape: {eda_insights['shape']}
+    Columns: {', '.join(eda_insights['columns'])}
     
     Summary Statistics:
-    {json.dumps(eda_results['summary_stats'], indent=2, default=str)}
+    {json.dumps(eda_insights['summary_stats'], indent=2, default=str)}
     
     Data Types:
-    {json.dumps(eda_results['dtypes'], indent=2, default=str)}
+    {json.dumps(eda_insights['dtypes'], indent=2, default=str)}
     
-    User Goal: {user_goal}
+    User Objective: {user_objective}
     """
     
     # Get sample data
-    sample_data = df.head(10).to_string()
+    sample_records = df.head(10).to_string()
     
-    prompt = f"""You are an expert data analyst. Analyze the following dataset and provide insights based on the user's goal.
+    prompt = f"""You are an advanced data analysis AI agent. Analyze the following dataset and provide insights based on the user's objective.
 
-{data_summary}
+{data_context}
 
-Sample Data:
-{sample_data}
+Sample Records:
+{sample_records}
 
 Please provide:
-1. Key insights and patterns in the data
-2. Recommendations for analysis based on the user's goal
+1. Key patterns and insights discovered in the data
+2. Actionable recommendations based on the user's objective
 3. Specific visualization recommendations in this JSON format:
    {{"visualizations": [
-     {{"type": "scatter/bar/line/box/histogram", "x_col": "column_name", "y_col": "column_name" (or null), "color_col": "column_name" (or null), "title": "Description", "insight": "What this shows"}},
+     {{"type": "scatter/bar/line/box/histogram", "x_col": "column_name", "y_col": "column_name" (or null), "color_col": "column_name" (or null), "title": "Description", "insight": "What this reveals"}},
      ...
    ]}}
-4. Any potential issues or considerations
+4. Potential data quality considerations or anomalies
 
 Format your response with clear sections. Put the JSON visualization recommendations in a code block."""
 
     try:
         response = model.generate_content(prompt)
+        agent.ai_analysis = response.text
+        agent.log_action("Completed AI-powered deep analysis")
         return response.text
     except Exception as e:
-        return f"Error analyzing data: {str(e)}"
+        agent.log_action(f"AI analysis error: {str(e)}")
+        return f"Error during AI analysis: {str(e)}"
 
-def parse_visualization_recommendations(analysis_text, df):
-    """Parse visualization recommendations from AI response and create them"""
-    visualizations = []
+def agent_parse_viz_recommendations(analysis_text, df, agent):
+    """Agent parses AI recommendations and generates visualizations"""
+    agent.update_phase('intelligent_visualization')
+    charts = []
     
     try:
-        # Try to extract JSON from the response
+        # Extract JSON from AI response
         import re
         json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', analysis_text, re.DOTALL)
         
         if json_match:
-            viz_data = json.loads(json_match.group(1))
+            viz_specs = json.loads(json_match.group(1))
             
-            if 'visualizations' in viz_data:
-                for viz in viz_data['visualizations']:
+            if 'visualizations' in viz_specs:
+                for spec in viz_specs['visualizations']:
                     try:
-                        viz_type = viz.get('type', 'scatter')
-                        x_col = viz.get('x_col')
-                        y_col = viz.get('y_col')
-                        color_col = viz.get('color_col')
-                        title = viz.get('title', f'{viz_type.title()} Plot')
-                        insight = viz.get('insight', '')
+                        viz_type = spec.get('type', 'scatter')
+                        x_col = spec.get('x_col')
+                        y_col = spec.get('y_col')
+                        color_col = spec.get('color_col')
+                        title = spec.get('title', f'{viz_type.title()} Plot')
+                        insight = spec.get('insight', '')
                         
                         # Validate columns exist
                         if x_col and x_col in df.columns:
-                            fig = create_custom_visualization(df, viz_type, x_col, y_col, color_col, title)
+                            fig = agent_create_visualization(df, viz_type, x_col, y_col, color_col, title)
                             if fig:
-                                visualizations.append({
+                                charts.append({
                                     'figure': fig,
                                     'title': title,
                                     'insight': insight
                                 })
+                                agent.log_action(f"Generated {viz_type} visualization: {title}")
                     except Exception as e:
                         continue
     except Exception as e:
-        pass
+        agent.log_action(f"Visualization parsing error: {str(e)}")
     
-    return visualizations
+    agent.generated_charts = charts
+    return charts
 
-def create_custom_visualization(df, viz_type, x_col, y_col=None, color_col=None, title=None):
-    """Create custom visualizations based on AI recommendations"""
+def agent_create_visualization(df, viz_type, x_col, y_col=None, color_col=None, title=None):
+    """Agent creates custom visualizations"""
     try:
         if not title:
             title = f"{viz_type.title()}: {x_col}"
@@ -281,18 +321,19 @@ def create_custom_visualization(df, viz_type, x_col, y_col=None, color_col=None,
         return None
 
 def fig_to_base64(fig):
-    """Convert plotly figure to base64 for embedding in HTML"""
+    """Convert plotly figure to base64"""
     img_bytes = fig.to_image(format="png", width=1200, height=600)
     img_base64 = base64.b64encode(img_bytes).decode()
     return img_base64
 
-def generate_comprehensive_report(df, eda_results, ai_insights, visualizations):
-    """Generate comprehensive HTML report with all visualizations"""
+def agent_generate_report(df, eda_insights, ai_analysis, charts, agent):
+    """Agent generates comprehensive analysis report"""
+    agent.update_phase('report_generation')
     
     report_html = f"""
     <html>
     <head>
-        <title>Data Analysis Report</title>
+        <title>AI Agent Analysis Report</title>
         <style>
             body {{
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -379,37 +420,37 @@ def generate_comprehensive_report(df, eda_results, ai_insights, visualizations):
     </head>
     <body>
         <div class="header">
-            <h1>📊 Data Analysis Report</h1>
-            <p>AI-Powered Analysis Results</p>
+            <h1>🤖 AI Agent Analysis Report</h1>
+            <p>Autonomous Data Analysis Results</p>
         </div>
         
         <div class="section">
-            <h2>📈 Dataset Overview</h2>
+            <h2>📊 Dataset Overview</h2>
             <div class="metric">
-                <div class="metric-value">{eda_results['shape'][0]:,}</div>
-                <div class="metric-label">Total Rows</div>
+                <div class="metric-value">{eda_insights['shape'][0]:,}</div>
+                <div class="metric-label">Total Records</div>
             </div>
             <div class="metric">
-                <div class="metric-value">{eda_results['shape'][1]}</div>
-                <div class="metric-label">Total Columns</div>
+                <div class="metric-value">{eda_insights['shape'][1]}</div>
+                <div class="metric-label">Features</div>
             </div>
             <div class="metric">
-                <div class="metric-value">{sum(1 for dtype in eda_results['dtypes'].values() if dtype in ['float64', 'int64'])}</div>
-                <div class="metric-label">Numeric Columns</div>
+                <div class="metric-value">{sum(1 for dtype in eda_insights['dtypes'].values() if dtype in ['float64', 'int64'])}</div>
+                <div class="metric-label">Numeric Features</div>
             </div>
         </div>
         
         <div class="section">
-            <h2>🧠 AI Insights</h2>
-            <div style="white-space: pre-wrap;">{ai_insights}</div>
+            <h2>🧠 AI Agent Insights</h2>
+            <div style="white-space: pre-wrap;">{ai_analysis}</div>
         </div>
         
         <div class="section">
-            <h2>📊 Visualizations & Insights</h2>
+            <h2>📊 Agent-Generated Visualizations</h2>
     """
     
     # Add visualizations
-    for i, viz_data in enumerate(visualizations):
+    for i, viz_data in enumerate(charts):
         try:
             img_base64 = fig_to_base64(viz_data['figure'])
             report_html += f"""
@@ -426,10 +467,10 @@ def generate_comprehensive_report(df, eda_results, ai_insights, visualizations):
         </div>
         
         <div class="section">
-            <h2>📋 Column Information</h2>
+            <h2>📋 Feature Information</h2>
             <table>
                 <tr>
-                    <th>Column Name</th>
+                    <th>Feature Name</th>
                     <th>Data Type</th>
                     <th>Unique Values</th>
                 </tr>
@@ -439,8 +480,8 @@ def generate_comprehensive_report(df, eda_results, ai_insights, visualizations):
         report_html += f"""
                 <tr>
                     <td>{col}</td>
-                    <td>{eda_results['dtypes'][col]}</td>
-                    <td>{eda_results['unique_counts'][col]}</td>
+                    <td>{eda_insights['dtypes'][col]}</td>
+                    <td>{eda_insights['unique_counts'][col]}</td>
                 </tr>
         """
     
@@ -449,7 +490,7 @@ def generate_comprehensive_report(df, eda_results, ai_insights, visualizations):
         </div>
         
         <div class="section">
-            <h2>📊 Summary Statistics</h2>
+            <h2>📊 Statistical Summary</h2>
     """
     
     summary_df = df.describe()
@@ -465,43 +506,52 @@ def generate_comprehensive_report(df, eda_results, ai_insights, visualizations):
     </html>
     """
     
+    agent.log_action("Generated comprehensive analysis report")
     return report_html
 
 # Main App
 st.markdown('<h1 class="main-header">🤖 AI Data Analysis Agent</h1>', unsafe_allow_html=True)
-st.markdown("### Automated Data Analysis Pipeline with Gemini AI")
+st.markdown("### Autonomous Data Analysis Pipeline with AI Intelligence")
 
 # Sidebar
 with st.sidebar:
-    st.header("⚙️ Configuration")
+    st.header("⚙️ Agent Configuration")
     api_key = st.text_input("Gemini API Key", type="password", help="Enter your Google Gemini API key")
     
     st.markdown("---")
-    st.header("📊 Pipeline Status")
+    st.header("🤖 Agent Status")
     
-    stages = {
-        'upload': '📁 Upload Data',
-        'cleaning': '🧹 Data Cleaning',
-        'eda': '📈 Exploratory Analysis',
-        'goal': '🎯 Goal Setting',
-        'analysis': '🔍 AI Analysis',
-        'visualization': '📊 Visualization',
-        'report': '📄 Report Generation'
+    agent_phases = {
+        'idle': '⏸️ Idle',
+        'data_cleaning': '🧹 Cleaning Data',
+        'exploratory_analysis': '📈 Exploring Data',
+        'goal_setting': '🎯 Setting Objective',
+        'ai_powered_analysis': '🤖 AI Analysis',
+        'intelligent_visualization': '📊 Creating Visualizations',
+        'report_generation': '📄 Generating Report'
     }
     
-    for stage_key, stage_name in stages.items():
-        if st.session_state.stage == stage_key:
-            st.markdown(f"**✅ {stage_name}** (Current)")
+    current_phase = st.session_state.agent.current_phase
+    for phase_key, phase_name in agent_phases.items():
+        if current_phase == phase_key:
+            st.markdown(f"**✅ {phase_name}** (Active)")
         else:
-            st.markdown(f"⏳ {stage_name}")
+            st.markdown(f"⏳ {phase_name}")
+    
+    st.markdown("---")
+    st.header("📝 Agent Memory")
+    if st.session_state.agent.agent_memory:
+        with st.expander("View Agent Actions", expanded=False):
+            for action in st.session_state.agent.agent_memory[-10:]:
+                st.text(f"• {action}")
 
 # Main content
-tab1, tab2, tab3, tab4 = st.tabs(["📤 Upload & Process", "🤖 AI Analysis", "📊 Results & Visualizations", "🔄 Project Flow"])
+tab1, tab2, tab3, tab4 = st.tabs(["📤 Data Ingestion", "🤖 AI Analysis", "📊 Results & Insights", "🔄 Agent Workflow"])
 
 with tab1:
-    st.header("Step 1: Upload Your Data")
+    st.header("Phase 1: Data Ingestion & Preprocessing")
     
-    uploaded_file = st.file_uploader("Choose a CSV file", type=['csv'])
+    uploaded_file = st.file_uploader("Upload Dataset (CSV)", type=['csv'])
     
     if uploaded_file is not None:
         try:
@@ -509,164 +559,158 @@ with tab1:
             file_size = uploaded_file.size / (1024 * 1024)  # Convert to MB
             
             if file_size > 50:
-                st.markdown('<div class="status-box status-error">❌ File too large! Please upload a file smaller than 50MB.</div>', unsafe_allow_html=True)
+                st.markdown('<div class="status-box status-error">❌ Dataset too large! Maximum size: 50MB</div>', unsafe_allow_html=True)
             else:
                 # Data Ingestion
-                st.session_state.stage = 'cleaning'
+                st.session_state.agent.update_phase('data_cleaning')
                 df = pd.read_csv(uploaded_file)
+                st.session_state.agent.raw_data = df
                 
-                st.markdown('<div class="status-box status-success">✅ File uploaded successfully!</div>', unsafe_allow_html=True)
-                st.write(f"**Shape:** {df.shape[0]} rows × {df.shape[1]} columns")
+                st.markdown('<div class="status-box status-success">✅ Dataset ingested successfully!</div>', unsafe_allow_html=True)
+                st.write(f"**Shape:** {df.shape[0]} records × {df.shape[1]} features")
                 
-                # Data Cleaning & Preprocessing
-                with st.spinner("🧹 Cleaning and preprocessing data..."):
-                    cleaned_df, issues = clean_and_validate_data(df)
-                    st.session_state.processed_data = cleaned_df
+                # Data Cleaning
+                with st.spinner("🧹 Agent is cleaning and preprocessing data..."):
+                    cleaned_df, issues = agent_clean_data(df, st.session_state.agent)
                 
                 if issues:
-                    st.markdown('<div class="status-box status-warning">⚠️ Data Issues Found and Resolved:</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="status-box status-warning">⚠️ Data Quality Issues Resolved by Agent:</div>', unsafe_allow_html=True)
                     for issue in issues:
                         st.write(f"• {issue}")
                 else:
-                    st.markdown('<div class="status-box status-success">✅ Data is clean and ready!</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="status-box status-success">✅ Data is clean and ready for analysis!</div>', unsafe_allow_html=True)
                 
                 # Show cleaned data preview
-                st.subheader("📋 Cleaned Data Preview")
+                st.subheader("📋 Cleaned Dataset Preview")
                 st.dataframe(cleaned_df.head(10), use_container_width=True)
                 
                 # EDA
-                st.session_state.stage = 'eda'
-                with st.spinner("📈 Performing exploratory data analysis..."):
-                    eda_results = perform_eda(cleaned_df)
+                st.session_state.agent.update_phase('exploratory_analysis')
+                with st.spinner("📈 Agent performing exploratory analysis..."):
+                    eda_insights = agent_perform_eda(cleaned_df, st.session_state.agent)
                 
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.metric("Total Rows", eda_results['shape'][0])
+                    st.metric("Total Records", eda_insights['shape'][0])
                 with col2:
-                    st.metric("Total Columns", eda_results['shape'][1])
+                    st.metric("Total Features", eda_insights['shape'][1])
                 with col3:
-                    numeric_cols = sum(1 for dtype in eda_results['dtypes'].values() if dtype in ['float64', 'int64'])
-                    st.metric("Numeric Columns", numeric_cols)
+                    numeric_cols = sum(1 for dtype in eda_insights['dtypes'].values() if dtype in ['float64', 'int64'])
+                    st.metric("Numeric Features", numeric_cols)
                 
                 # Initial Visualizations
-                st.subheader("📊 Initial Insights & Visualizations")
-                figs = generate_visualizations(cleaned_df)
+                st.subheader("📊 Initial Agent-Generated Insights")
+                charts = agent_generate_initial_viz(cleaned_df, st.session_state.agent)
                 
-                if figs:
-                    for title, fig in figs[:3]:  # Show first 3 visualizations
+                if charts:
+                    for title, fig in charts[:3]:
                         st.plotly_chart(fig, use_container_width=True)
                 
-                st.session_state.analysis_results = {
-                    'eda': eda_results,
-                    'visualizations': figs
-                }
-                
         except Exception as e:
-            st.markdown(f'<div class="status-box status-error">❌ Error processing file: {str(e)}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="status-box status-error">❌ Error processing dataset: {str(e)}</div>', unsafe_allow_html=True)
 
 with tab2:
-    st.header("Step 2: AI-Powered Analysis")
+    st.header("Phase 2: AI-Powered Deep Analysis")
     
-    if st.session_state.processed_data is not None:
+    if st.session_state.agent.cleaned_data is not None:
         if not api_key:
-            st.warning("⚠️ Please enter your Gemini API key in the sidebar to continue.")
+            st.warning("⚠️ Please configure Gemini API key in the sidebar.")
         else:
-            st.session_state.stage = 'goal'
+            st.session_state.agent.update_phase('goal_setting')
             
-            # User Goal Input
-            st.subheader("🎯 What would you like to discover?")
-            user_goal = st.text_area(
-                "Describe your analysis goal or question:",
-                placeholder="e.g., I want to understand the relationship between sales and marketing spend, identify key trends, predict customer churn, etc.",
+            # User Objective Input
+            st.subheader("🎯 Define Analysis Objective")
+            user_objective = st.text_area(
+                "What insights are you seeking from this data?",
+                placeholder="e.g., Discover patterns in customer behavior, identify factors affecting sales performance, predict trends, etc.",
                 height=100
             )
             
-            if st.button("🚀 Start AI Analysis", type="primary"):
-                if not user_goal:
-                    st.warning("Please provide a goal or question for the analysis.")
+            if st.button("🚀 Initiate AI Analysis", type="primary"):
+                if not user_objective:
+                    st.warning("Please define an analysis objective.")
                 else:
-                    st.session_state.stage = 'analysis'
+                    st.session_state.agent.update_phase('ai_powered_analysis')
                     
                     try:
-                        model = initialize_gemini(api_key)
+                        ai_model = initialize_ai_model(api_key)
                         
-                        with st.spinner("🤖 AI Agent is analyzing your data..."):
-                            analysis = analyze_with_gemini(
-                                model,
-                                st.session_state.processed_data,
-                                st.session_state.analysis_results['eda'],
-                                user_goal
+                        with st.spinner("🤖 AI Agent analyzing your dataset..."):
+                            analysis = agent_ai_analysis(
+                                ai_model,
+                                st.session_state.agent.cleaned_data,
+                                st.session_state.agent.eda_insights,
+                                user_objective,
+                                st.session_state.agent
                             )
-                        
-                        st.session_state.analysis_results['ai_insights'] = analysis
                         
                         # Parse and generate visualizations
-                        with st.spinner("📊 Generating recommended visualizations..."):
-                            visualizations = parse_visualization_recommendations(
+                        with st.spinner("📊 Agent generating intelligent visualizations..."):
+                            charts = agent_parse_viz_recommendations(
                                 analysis,
-                                st.session_state.processed_data
+                                st.session_state.agent.cleaned_data,
+                                st.session_state.agent
                             )
-                            st.session_state.generated_visualizations = visualizations
                         
-                        st.session_state.stage = 'visualization'
+                        st.session_state.agent.update_phase('intelligent_visualization')
                         
-                        st.markdown('<div class="status-box status-success">✅ Analysis Complete!</div>', unsafe_allow_html=True)
+                        st.markdown('<div class="status-box status-success">✅ AI Analysis Complete!</div>', unsafe_allow_html=True)
                         
                         # Display AI Insights
-                        st.subheader("🧠 AI Insights")
+                        st.subheader("🧠 AI Agent Discoveries")
                         st.markdown(analysis)
                         
                         # Display Generated Visualizations
-                        if visualizations:
-                            st.subheader("📊 AI-Recommended Visualizations")
-                            for viz_data in visualizations:
+                        if charts:
+                            st.subheader("📊 Agent-Recommended Visualizations")
+                            for viz_data in charts:
                                 st.plotly_chart(viz_data['figure'], use_container_width=True)
                                 if viz_data.get('insight'):
-                                    st.info(f"💡 **Insight:** {viz_data['insight']}")
+                                    st.info(f"💡 **Agent Insight:** {viz_data['insight']}")
                         
                     except Exception as e:
                         st.markdown(f'<div class="status-box status-error">❌ Error: {str(e)}</div>', unsafe_allow_html=True)
     else:
-        st.info("👆 Please upload a CSV file in the 'Upload & Process' tab first.")
+        st.info("👆 Please ingest data in the 'Data Ingestion' tab first.")
 
 with tab3:
-    st.header("Step 3: Results & Custom Visualizations")
+    st.header("Phase 3: Results & Custom Analytics")
     
-    if st.session_state.processed_data is not None:
-        st.session_state.stage = 'report'
+    if st.session_state.agent.cleaned_data is not None:
+        st.session_state.agent.update_phase('report_generation')
         
-        df = st.session_state.processed_data
+        df = st.session_state.agent.cleaned_data
         
         # Custom Visualization Builder
-        st.subheader("🎨 Create Custom Visualizations")
+        st.subheader("🎨 Custom Visualization Builder")
         
         col1, col2 = st.columns(2)
         
         with col1:
             viz_type = st.selectbox(
-                "Visualization Type",
+                "Chart Type",
                 ["scatter", "bar", "line", "box", "histogram"]
             )
             
-            x_col = st.selectbox("X-axis", df.columns)
+            x_col = st.selectbox("X-axis Feature", df.columns)
         
         with col2:
             if viz_type in ["scatter", "bar", "line", "box"]:
-                y_col = st.selectbox("Y-axis", [None] + df.columns.tolist())
+                y_col = st.selectbox("Y-axis Feature", [None] + df.columns.tolist())
             else:
                 y_col = None
             
             color_col = st.selectbox("Color by (optional)", [None] + df.columns.tolist())
         
-        if st.button("Generate Visualization"):
-            fig = create_custom_visualization(df, viz_type, x_col, y_col, color_col)
+        if st.button("Generate Custom Visualization"):
+            fig = agent_create_visualization(df, viz_type, x_col, y_col, color_col)
             if fig:
                 st.plotly_chart(fig, use_container_width=True)
         
         st.markdown("---")
         
         # Download Section
-        st.subheader("📥 Download Results")
+        st.subheader("📥 Export Analysis Results")
         
         col1, col2, col3 = st.columns(3)
         
@@ -674,140 +718,291 @@ with tab3:
             # Download processed data
             csv = df.to_csv(index=False)
             st.download_button(
-                label="📊 Download Processed Data (CSV)",
+                label="📊 Export Cleaned Data (CSV)",
                 data=csv,
-                file_name="processed_data.csv",
+                file_name="agent_processed_data.csv",
                 mime="text/csv"
             )
         
         with col2:
-            # Download simple analysis report
-            if 'ai_insights' in st.session_state.analysis_results:
+            # Download analysis report
+            if st.session_state.agent.ai_analysis:
                 report = f"""
-# Data Analysis Report
+# AI Agent Analysis Report
 
 ## Dataset Overview
-- Rows: {df.shape[0]}
-- Columns: {df.shape[1]}
+- Records: {df.shape[0]}
+- Features: {df.shape[1]}
 
-## AI Insights
-{st.session_state.analysis_results['ai_insights']}
+## AI Agent Discoveries
+{st.session_state.agent.ai_analysis}
 
-## Column Information
+## Feature Information
 {df.dtypes.to_string()}
 
-## Summary Statistics
+## Statistical Summary
 {df.describe().to_string()}
 """
                 st.download_button(
-                    label="📄 Download Text Report",
+                    label="📄 Export Text Report (MD)",
                     data=report,
-                    file_name="analysis_report.md",
+                    file_name="agent_analysis_report.md",
                     mime="text/markdown"
                 )
         
         with col3:
-            # Download comprehensive HTML report with visualizations
-            if 'ai_insights' in st.session_state.analysis_results:
+            # Download comprehensive HTML report
+            if st.session_state.agent.ai_analysis:
                 try:
-                    html_report = generate_comprehensive_report(
+                    html_report = agent_generate_report(
                         df,
-                        st.session_state.analysis_results['eda'],
-                        st.session_state.analysis_results['ai_insights'],
-                        st.session_state.generated_visualizations
+                        st.session_state.agent.eda_insights,
+                        st.session_state.agent.ai_analysis,
+                        st.session_state.agent.generated_charts,
+                        st.session_state.agent
                     )
                     st.download_button(
-                        label="📊 Download Full Report (HTML)",
+                        label="📊 Export Full Report (HTML)",
                         data=html_report,
-                        file_name="comprehensive_report.html",
+                        file_name="agent_comprehensive_report.html",
                         mime="text/html"
                     )
                 except Exception as e:
-                    st.error(f"Error generating HTML report: {str(e)}")
+                    st.error(f"Error generating report: {str(e)}")
     else:
-        st.info("👆 Please upload and analyze data first.")
+        st.info("👆 Please ingest and analyze data first.")
 
 with tab4:
-    st.header("🔄 Project Flow Diagram")
+    st.header("🔄 AI Agent Workflow Architecture")
     
     st.markdown("""
-    This section visualizes the complete workflow of the AI Data Analysis Agent.
-    Upload an image of your project flow diagram below.
+    This section displays the autonomous workflow architecture of the AI Data Analysis Agent.
     """)
     
-    # Option to upload flow diagram
-    flow_image = st.file_uploader("Upload Project Flow Diagram", type=['png', 'jpg', 'jpeg', 'svg'])
+    # Configuration for flow diagram URL
+    st.subheader("⚙️ Flow Diagram Configuration")
     
-    if flow_image is not None:
+    flow_url = st.text_input(
+        "GitHub Repository Flow Diagram URL",
+        value=st.session_state.agent.flow_diagram_url,
+        placeholder="https://raw.githubusercontent.com/username/repo/main/flow_diagram.png",
+        help="Enter the raw URL of your flow diagram image from GitHub"
+    )
+    
+    if st.button("Update Flow Diagram URL"):
+        st.session_state.agent.flow_diagram_url = flow_url
+        st.success("✅ Flow diagram URL updated!")
+    
+    st.markdown("---")
+    
+    # Display flow diagram from repository
+    if flow_url:
         try:
-            image = Image.open(flow_image)
-            st.image(image, caption="Project Flow", use_container_width=True)
+            st.subheader("📊 Agent Workflow Architecture")
+            
+            # Fetch and display image from URL
+            response = requests.get(flow_url, timeout=10)
+            if response.status_code == 200:
+                image = Image.open(io.BytesIO(response.content))
+                st.image(image, caption="AI Agent Workflow Architecture", use_container_width=True)
+                st.success("✅ Flow diagram loaded from repository")
+            else:
+                st.error(f"❌ Failed to load image. Status code: {response.status_code}")
+                st.info("💡 Make sure the URL points to a raw image file (PNG, JPG, JPEG)")
+        except requests.exceptions.RequestException as e:
+            st.error(f"❌ Error loading image: {str(e)}")
+            st.info("💡 Verify the URL is correct and accessible")
         except Exception as e:
-            st.error(f"Error loading image: {str(e)}")
+            st.error(f"❌ Error displaying image: {str(e)}")
     else:
-        # Display default flow description
+        # Display default workflow description
+        st.subheader("📋 Default Agent Workflow")
         st.markdown("""
-        ### Default Project Workflow
+        ### Autonomous AI Agent Pipeline
         
         ```
-        1. 📁 DATA UPLOAD
-           ↓
-           • CSV File Input
-           • File Validation (Size < 50MB)
-           ↓
+        ┌─────────────────────────────────────────────────────────┐
+        │           AI DATA ANALYSIS AGENT WORKFLOW               │
+        └─────────────────────────────────────────────────────────┘
         
-        2. 🧹 DATA CLEANING
-           ↓
-           • Handle Missing Values
-           • Remove Duplicates
-           • Standardize Column Names
-           ↓
+        🔷 PHASE 1: DATA INGESTION
+           ├── Accept CSV dataset input
+           ├── Validate file size & format
+           ├── Store in agent.raw_data
+           └── Log action: "Dataset ingested"
+           
+        🔷 PHASE 2: DATA PREPROCESSING
+           ├── Agent scans for missing values
+           ├── Detect & remove duplicates
+           ├── Standardize feature names
+           ├── Apply cleaning algorithms
+           ├── Store in agent.cleaned_data
+           └── Log action: "Data cleaning complete"
+           
+        🔷 PHASE 3: EXPLORATORY ANALYSIS
+           ├── Calculate statistical summaries
+           ├── Analyze feature distributions
+           ├── Identify data types & patterns
+           ├── Store in agent.eda_insights
+           └── Log action: "EDA completed"
+           
+        🔷 PHASE 4: INITIAL VISUALIZATION
+           ├── Generate correlation heatmaps
+           ├── Create distribution plots
+           ├── Build frequency charts
+           ├── Store initial charts
+           └── Log action: "Initial viz generated"
+           
+        🔷 PHASE 5: OBJECTIVE DEFINITION
+           ├── Receive user analysis goal
+           ├── Parse objective requirements
+           ├── Update agent.current_phase
+           └── Log action: "Objective defined"
+           
+        🔷 PHASE 6: AI-POWERED ANALYSIS
+           ├── Initialize Gemini AI model
+           ├── Prepare data context summary
+           ├── Execute AI analysis pipeline
+           ├── Extract key insights & patterns
+           ├── Generate recommendations
+           ├── Store in agent.ai_analysis
+           └── Log action: "AI analysis complete"
+           
+        🔷 PHASE 7: INTELLIGENT VISUALIZATION
+           ├── Parse AI recommendations (JSON)
+           ├── Validate chart specifications
+           ├── Generate custom visualizations
+           ├── Attach insights to each chart
+           ├── Store in agent.generated_charts
+           └── Log action: "Intelligent viz created"
+           
+        🔷 PHASE 8: REPORT GENERATION
+           ├── Compile all analysis results
+           ├── Convert charts to base64
+           ├── Build HTML report structure
+           ├── Embed visualizations & insights
+           ├── Generate downloadable formats
+           └── Log action: "Report generated"
+           
+        🔷 PHASE 9: RESULT DELIVERY
+           ├── Display interactive results
+           ├── Provide export options (CSV, MD, HTML)
+           ├── Enable custom visualization builder
+           └── Log action: "Results delivered"
         
-        3. 📈 EXPLORATORY DATA ANALYSIS
-           ↓
-           • Statistical Summary
-           • Data Type Analysis
-           • Initial Visualizations
-           ↓
+        ┌─────────────────────────────────────────────────────────┐
+        │                  AGENT MEMORY SYSTEM                    │
+        ├─────────────────────────────────────────────────────────┤
+        │  • agent.raw_data           → Original dataset          │
+        │  • agent.cleaned_data       → Preprocessed data         │
+        │  • agent.eda_insights       → Statistical analysis      │
+        │  • agent.ai_analysis        → AI discoveries            │
+        │  • agent.generated_charts   → Visualization library     │
+        │  • agent.agent_memory       → Action history log        │
+        │  • agent.current_phase      → Active workflow phase     │
+        └─────────────────────────────────────────────────────────┘
         
-        4. 🎯 GOAL DEFINITION
-           ↓
-           • User Input
-           • Analysis Objective
-           ↓
-        
-        5. 🤖 AI ANALYSIS (Gemini)
-           ↓
-           • Pattern Recognition
-           • Insight Generation
-           • Visualization Recommendations
-           ↓
-        
-        6. 📊 VISUALIZATION GENERATION
-           ↓
-           • AI-Recommended Charts
-           • Custom Visualizations
-           • Interactive Plots
-           ↓
-        
-        7. 📄 REPORT GENERATION
-           ↓
-           • Text Report (MD)
-           • HTML Report with Visualizations
-           • Processed Data Export
-           ↓
-        
-        8. ✅ RESULTS & DOWNLOAD
+        ┌─────────────────────────────────────────────────────────┐
+        │                  KEY AGENT CAPABILITIES                 │
+        ├─────────────────────────────────────────────────────────┤
+        │  ✓ Autonomous data quality assessment                   │
+        │  ✓ Intelligent missing value handling                   │
+        │  ✓ Self-directed exploratory analysis                   │
+        │  ✓ AI-powered pattern recognition                       │
+        │  ✓ Context-aware visualization generation               │
+        │  ✓ Actionable insight extraction                        │
+        │  ✓ Comprehensive report automation                      │
+        │  ✓ Multi-format export capabilities                     │
+        └─────────────────────────────────────────────────────────┘
         ```
         """)
         
-        st.info("💡 **Tip:** Upload your own project flow diagram image to replace this default view!")
+        st.info("💡 **Tip:** Configure the GitHub repository URL above to display your custom workflow diagram!")
+        
+        # Agent Architecture Diagram
+        st.markdown("---")
+        st.subheader("🏗️ Agent Architecture Components")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("""
+            #### 🧠 Core Agent Components
+            - **Data Manager**: Handles ingestion & storage
+            - **Preprocessing Engine**: Cleans & transforms data
+            - **EDA Module**: Statistical analysis & profiling
+            - **AI Interface**: Gemini API integration
+            - **Visualization Engine**: Chart generation system
+            - **Report Builder**: Multi-format output generator
+            """)
+        
+        with col2:
+            st.markdown("""
+            #### 💾 Agent State Management
+            - **raw_data**: Original dataset buffer
+            - **cleaned_data**: Processed dataset cache
+            - **eda_insights**: Analysis results store
+            - **ai_analysis**: AI insights repository
+            - **generated_charts**: Visualization library
+            - **agent_memory**: Action history log
+            - **current_phase**: Workflow state tracker
+            """)
+        
+        st.markdown("---")
+        
+        # Workflow Phases Table
+        st.subheader("📊 Workflow Phases Overview")
+        
+        phases_data = {
+            'Phase': ['1', '2', '3', '4', '5', '6', '7', '8', '9'],
+            'Name': [
+                'Data Ingestion',
+                'Preprocessing',
+                'Exploratory Analysis',
+                'Initial Visualization',
+                'Objective Definition',
+                'AI Analysis',
+                'Intelligent Visualization',
+                'Report Generation',
+                'Result Delivery'
+            ],
+            'Agent Action': [
+                'Load & validate dataset',
+                'Clean & transform data',
+                'Statistical profiling',
+                'Generate base charts',
+                'Parse user goals',
+                'AI-powered insights',
+                'Create smart visualizations',
+                'Build comprehensive report',
+                'Export & display results'
+            ],
+            'Output Variable': [
+                'agent.raw_data',
+                'agent.cleaned_data',
+                'agent.eda_insights',
+                'Initial charts list',
+                'User objective string',
+                'agent.ai_analysis',
+                'agent.generated_charts',
+                'HTML report',
+                'Multiple formats'
+            ]
+        }
+        
+        phases_df = pd.DataFrame(phases_data)
+        st.dataframe(phases_df, use_container_width=True, hide_index=True)
 
 # Footer
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #666; padding: 2rem;">
     <p>🤖 Powered by Gemini AI | Built with Streamlit</p>
-    <p>Your AI-powered data analysis assistant</p>
+    <p>Autonomous AI Agent for Intelligent Data Analysis</p>
+    <p style="font-size: 0.9em; margin-top: 1rem;">
+        <strong>Agent Version:</strong> 1.0 | 
+        <strong>Model:</strong> Gemini 2.5 Flash | 
+        <strong>Framework:</strong> Streamlit + Plotly
+    </p>
 </div>
 """, unsafe_allow_html=True)
