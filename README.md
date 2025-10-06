@@ -2,7 +2,7 @@
 
 > Streamlit AI Agent that ingests a CSV, performs cleaning & EDA, runs AI-assisted analysis & visualization, and produces downloadable reports — with a one-click “Run Full Analysis” mode.
 
-This repository contains a production-ready, extensible Streamlit application that implements an autonomous **AI Data Analysis Agent**. It focuses on taking user CSVs through a full pipeline (ingest → clean → EDA → user goal → AI analysis → visualizations → report), with quality-of-life options such as silent visualization error handling, optional OpenAI summarization, and a configurable workflow diagram.
+This repository contains a production-ready, extensible Streamlit application that implements an autonomous **AI Data Analysis Agent**. It takes user CSVs through a full pipeline (ingest → clean → EDA → user goal → AI analysis → visualizations → report), and includes safety/UX features such as silent visualization error handling, optional Gemini/OpenAI summarization, and a configurable workflow diagram.
 
 ---
 
@@ -25,14 +25,14 @@ This repository contains a production-ready, extensible Streamlit application th
 
 ## Features
 
-* Upload CSV files (with basic file-type & size validation).
+* Upload CSV files (with file-type & size validation).
 * Automated cleaning and preprocessing (missing values, type coercion, datetime detection).
 * Exploratory Data Analysis: summary stats, missingness heatmap, correlation matrix.
-* AI-assisted analysis & insights (rule-based heuristics + optional OpenAI summarization).
+* AI-assisted analysis & insights (rule-based heuristics + optional Gemini/OpenAI summarization).
 * Visualization recommendations and interactive Plotly charts.
 * “Run Full Analysis” — single-click pipeline execution.
-* Exportable report (HTML / TXT download).
-* Configurable flow diagram (load from repository raw image URL) shown full-width.
+* Exportable report (HTML / TXT / MD download), with charts embedded as PNGs.
+* Configurable flow diagram (load from GitHub raw image URL) shown full-width.
 * Silent/safe visualization mode: catches Plotly/plotting errors and hides raw tracebacks from UI.
 * Caching for remote images and fast UX.
 * Extensible — add ML modules (classification, forecasting), PDF reports, or cloud connectors.
@@ -49,13 +49,13 @@ cd AI-Data-Analyst-Insights-for-everyone
 # Create venv (recommended)
 python -m venv .venv
 source .venv/bin/activate   # macOS/Linux
-# .venv\Scripts\activate   # Windows PowerShell
+# .venv/Scripts/activate    # Windows PowerShell
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Run Streamlit app
-streamlit run app.py         # or app1.py depending on which file you're using
+# Run the Streamlit app
+streamlit run app.py        # or streamlit run app1.py depending on the main file
 ```
 
 Open the link printed by Streamlit (usually `http://localhost:8501`) and use the UI to upload a CSV and run the AI Agent.
@@ -64,24 +64,28 @@ Open the link printed by Streamlit (usually `http://localhost:8501`) and use the
 
 ## Requirements
 
-Minimum tested versions (see `requirements.txt` file):
+The project uses the following Python packages (see `requirements.txt`):
 
 ```
-streamlit>=1.25.0
-pandas>=1.5.0
-numpy>=1.24.0
-plotly>=5.15.0
-scikit-learn>=1.2.0
-Pillow
+streamlit
+pandas
+plotly
+plotly-express
+numpy
+scikit-learn
 requests
-openai    # optional — only if you enable OpenAI summarization
+Pillow
+google-generativeai    # Gemini integration
+anthropic               # optional (if using Anthropic models instead)
 ```
 
-Install with:
+Install everything with:
 
 ```bash
 pip install -r requirements.txt
 ```
+
+> Note: `google-generativeai` (Gemini) requires credentials and quota from your Google Cloud/Generative AI project. If you don't have access, the app will still run using the rule-based analysis pipeline and Plotly visualizations.
 
 ---
 
@@ -94,7 +98,7 @@ pip install -r requirements.txt
    cd AI-Data-Analyst-Insights-for-everyone
    ```
 
-2. Create a Python virtual environment and install:
+2. Create and activate a virtual environment:
 
    ```bash
    python -m venv .venv
@@ -102,108 +106,99 @@ pip install -r requirements.txt
    pip install -r requirements.txt
    ```
 
-3. Start the app:
+3. Start the Streamlit app:
 
    ```bash
    streamlit run app.py
    ```
 
-   or if your main file is named `app1.py`:
+4. Configure the Gemini API key (if you want AI summaries):
 
-   ```bash
-   streamlit run app1.py
-   ```
+   * Open the app sidebar and paste your Gemini API key in the `Gemini API Key` field.
 
 ---
 
 ## Configuration & common options
 
-* **OpenAI summarization**
+* **Gemini / Generative AI**
 
-  * Optional: the app supports OpenAI-based natural-language summaries. Provide your API key in the sidebar (`OpenAI API Key`) and enable the checkbox to use it.
-  * If you don’t want to use OpenAI, leave it blank — the agent will use rule-based summaries.
+  * Provide your `Gemini` (Google Generative AI) API key in the sidebar. The app initializes `google-generativeai` if a key is present and will call the model to generate analysis summaries and visualization recommendations.
+  * If you prefer another provider, the app includes hooks (and optional `anthropic`) to plug in different LLM clients.
 
 * **Flow diagram**
 
-  * The flow diagram (tab 4) loads a raw image from a URL in the code (`DEFAULT_FLOW_URL`) or can be configured via the UI (if enabled).
-  * Use a raw GitHub content URL, e.g.:
-
-    ```
-    https://raw.githubusercontent.com/<username>/<repo>/<branch>/path/to/flow_diagram.png
-    ```
+  * The Agent Workflow diagram (Tab: "Agent Workflow") loads an image from a `DEFAULT_FLOW_URL` defined in the code. Use a raw GitHub content URL (raw.githubusercontent.com) or any public image URL.
 
 * **Upload size limit**
 
-  * Default set to ~30 MB. Change the `MAX_UPLOAD_MB` constant in the app if needed.
+  * The sample app checks file size (commonly set to 30–50 MB). Change the limit constant in the app as needed.
 
 * **Silent visualization errors**
 
-  * Toggle in the sidebar: if enabled, plotting errors are suppressed and user won’t see Streamlit’s red tracebacks. All exceptions are logged to server logs for debugging.
+  * The app wraps Plotly creation in a safe plotting helper. Toggle the behavior in code (silent vs friendly warnings). All exceptions are logged server-side.
+
+* **Non-ASCII / emoji issues**
+
+  * If you encounter `SyntaxError: invalid character` for emojis (e.g., ❤️), either remove the emoji from the source, replace it with an HTML entity (e.g. `&#10084;`), or save the file as UTF-8. The safest default is to avoid literal emojis in `.py` files.
 
 ---
 
 ## App layout & tabs
 
-Typical app structure:
-
-* **Upload CSV** — validate file format & size; preview.
-* **Cleaning & Preprocessing** — remove sparse columns, detect datetimes, provide cleaning log.
-* **EDA** — numeric summary, correlation matrix, missingness heatmap, chart recommendations.
-* **AI Analysis** — user enters a goal; agent checks for ambiguity; runs anomaly detection & quick ML checks; suggests visualizations.
-* **Visualization** — sample Plotly charts (line, scatter, bar, histogram, box).
-* **Report** — generates HTML/TXT report and download link.
-* **Workflow Architecture** (Tab 4) — full-width flow diagram loaded from raw GitHub image (cached).
+* **📤 Data Ingestion** — Upload CSV, preprocessing, quick EDA and previews.
+* **⚙️ AI Analysis** — Set analysis objective, run Gemini-powered deep analysis and get recommendations.
+* **📊 Results & Insights** — Custom visualization builder, export cleaned data and reports.
+* **🔄 Agent Workflow** — Visual workflow diagram and architecture overview.
 
 ---
 
 ## How the AI Agent works (overview)
 
-1. **Ingest**: streamlit file uploader → `pd.read_csv()` with robust fallback separators.
-2. **Preprocess**: drop extremely sparse columns, convert numeric strings, detect datetime columns.
+1. **Ingest**: Streamlit file uploader → `pd.read_csv()` with fallbacks.
+2. **Preprocess**: drop extremely sparse columns, convert numeric strings, detect datetime columns, fill missing values with median/mode.
 3. **EDA**: `df.describe()`, numeric distributions, correlation matrix, missingness visualization.
-4. **Goal handling**: detect ambiguous goals via heuristics; ask for clarifications or autoswitch to default plan.
-5. **AI Analysis**: rule-based insights + optional `openai.ChatCompletion` summarization (if key provided).
-6. **Visualize**: recommend charts based on data & goal; use `plotly.express` and safe-plot wrapper to handle exceptions silently.
-7. **Report**: assemble HTML using a safe builder (avoid raw f-strings with `{}` in CSS), write or serve as download.
+4. **Goal handling**: detect ambiguous goals via heuristics; ask for clarifications or auto-plan.
+5. **AI Analysis**: call Gemini (if configured) with dataset context and user objective to obtain JSON visualization recommendations and insights.
+6. **Visualize**: generate recommended charts safely with Plotly, embed PNG snapshots into HTML report.
+7. **Report**: assemble HTML (safe string building) and serve as downloadable HTML/MD/CSV files.
 
 ---
 
 ## Troubleshooting & tips
 
-* **Raw Plotly errors appear in UI**: Update to the safe visualization functions — the repository includes `safe_plot` logic to catch plotting exceptions. Also enable the sidebar toggle “Suppress visualization error messages (silent mode)”.
-* **Emoji / non-ASCII SyntaxError**: If you see `SyntaxError: invalid character` (e.g. heart emoji), replace emojis in Python source with HTML entities (e.g. `&#10084;`) or save the file encoded as UTF-8 and add `# -*- coding: utf-8 -*-` at the top.
-* **Flow diagram not loading**: Ensure you use the **raw** GitHub URL (`raw.githubusercontent.com/...`). If the file is private, host the image in a public repo or supply a public URL.
-* **Large CSVs**: For very large datasets, sample the data for EDA or implement chunked processing. Consider storing raw data externally (S3, GCS) and reading relevant slices.
-* **OpenAI errors**: If OpenAI summarization fails, check your key and usage quotas. The app catches failures and falls back to non-OpenAI summaries.
+* **Plotly tracebacks in UI**: If you see raw Python tracebacks in Streamlit, update to the safe plotting wrapper included in the code. This logs exceptions and prevents red error boxes from appearing.
+* **Gemini API errors**: If generative calls fail, check your API key, network, and quota. The app falls back to rule-based insights if AI calls error out.
+* **Large datasets**: For large CSVs, sample the data for EDA or increase memory limits. Consider adding chunked processing or offloading data to cloud storage.
+* **Flow image not loading**: Use the raw GitHub URL (`raw.githubusercontent.com/...`) and ensure the file path is correct and publicly accessible.
 
 ---
 
 ## Extending the app
 
-* Add classification/regression workflows with cross-validation and hyperparameter tuning (e.g., `scikit-learn`, `xgboost`).
+* Add model training (classification/regression) with cross-validation and hyperparameter tuning (scikit-learn, XGBoost).
 * Add time-series forecasting (Prophet, pmdarima, or deep learning).
-* Generate PDF reports (weasyprint, reportlab, or headless Chromium via `pyppeteer`).
-* Add authentication & cloud deployment: deploy to Streamlit Cloud, Heroku, or as a container on AWS/GCP/Azure.
-* Add a task queue or worker for heavy analyses (Celery/RQ) to avoid blocking the Streamlit server.
+* Generate PDF reports (weasyprint, reportlab, or headless Chromium).
+* Add authentication & cloud deployment: Streamlit Cloud, Heroku, or containerized deployment on AWS/GCP/Azure.
+* Add a task queue or worker for heavy analyses (Celery/RQ) to avoid blocking Streamlit's single-threaded server.
 
 ---
 
 ## Contributing
 
-Contributions welcome! Steps:
+Contributions are welcome!
 
 1. Fork the repo
 2. Create a branch for your feature/fix: `git checkout -b feat/my-feature`
 3. Implement and test changes
 4. Open a pull request with a clear description and screenshots (if applicable)
 
-Please follow the style of the project and add tests where appropriate.
+Please follow the project style and add tests where appropriate.
 
 ---
 
 ## License
 
-This repository is provided under the **MIT License**. Add a `LICENSE` file with MIT license text when you publish.
+This repository is provided under the **MIT License**. Add a `LICENSE` file with MIT license text when publishing.
 
 ---
 
@@ -212,10 +207,10 @@ This repository is provided under the **MIT License**. Add a `LICENSE` file with
 Made with ❤️ by **Shreyas Kasture**
 Repository: [https://github.com/Shreyas521032/AI-Data-Analyst-Insights-for-everyone](https://github.com/Shreyas521032/AI-Data-Analyst-Insights-for-everyone)
 
-If you'd like, I can:
+If you'd like, I can also:
 
-* Create `README.md` as a file and a PR-ready patch.
-* Add badges (build, license, python versions).
-* Draft `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, or `LICENSE` files.
+* Add badges (CI, license, python version)
+* Create `LICENSE`, `CONTRIBUTING.md`, and `CODE_OF_CONDUCT.md`
+* Create a `requirements.txt` file and PR-ready patches
 
 Which one should I add next?
